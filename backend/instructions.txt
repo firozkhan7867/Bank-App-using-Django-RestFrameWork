@@ -1,0 +1,45 @@
+The is a simple Bank application... Which consists of 
+    1.Create Bank Account
+    2.Generate PinCode
+    3.Deposit Money
+    4.WithDraw Money
+    5. Transfer Money to Other Account
+
+Description : 
+    -> Here it consists of List of Models
+            1. CustomUser Model      (along with CustomUserSerializer and Model Viewset )
+            2. Account Model         (along with AccountSerializer and Model Viewset for Account)
+            3. History Model         (along with HistorySerializer this consists of "list of user with whom the current user has performed transactions")
+            4. PinCode Model         (along with PinCodeSerializer and Viewset ,, stores and Generate PinCode for account)
+            5. Transacton Model      (along with TransactionSerializer and ViewSet)
+
+    -> here Transacton Model plays an crucial role,  it stores all the transactions occured between user
+            -> It has 3 types of transactions
+                    1. Deposit   (self Transfer of amount)
+                    2. WithDraw  
+                    3. Transfer
+
+
+Step : 1
+
+    -> Python manage.py makemigrations
+    -> Python manage.py migrate
+    -> Python manage.py createsuperuser
+    -> Python manage.py runserver
+
+Step : 2
+
+    -> Open Swagger Ui Docs,,  Here you can see list of API for each functionality (CRUD)
+    -> Explore all the apis,,  (Each Model consists of CRUD APIs)
+
+Step : 3
+
+    -> Create bank account for 2 users from different emails (2 naye Users se 2  bank accounts banana hai)
+    -> then Generate Pin for both the users
+    -> Deposit 500 to first user and Deposit 1000 to other user (using Transacton Post API "api/bank/transactions/") apko account_no and amount enter krna padega 
+    -> you can now test ,  WithDraw amount from any  account
+    -> you can test,  transfer amount to any  account
+
+
+aur kuch doubt aaye to call me
+
