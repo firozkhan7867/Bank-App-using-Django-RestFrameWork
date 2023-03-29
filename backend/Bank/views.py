@@ -7,6 +7,7 @@ from .serializers import AccountSerializer,PinCodeSerializer,TransactionSerializ
 from .models import Account,PinCode,Transaction,History,Notification
 from .permissions import UpdateOwnAccount
 from drf_spectacular.utils import extend_schema,OpenApiParameter
+from django.db.models import Q
 
 
 
@@ -126,7 +127,6 @@ class ListTransactionViewSet(viewsets.ModelViewSet):
     authentication_classes = (TokenAuthentication,)
     permission_classes = (IsAuthenticated,)
     serializer_class = TransactionSerializer
-    filter_backends = (SimpleFilterBackend,)
 
     @extend_schema(
         parameters=[
@@ -144,8 +144,11 @@ class ListTransactionViewSet(viewsets.ModelViewSet):
         account_no = request.query_params.get('account_no',None)
         if not account_no:
             return Response({'account_no': 'This field is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        from_account = Account.objects.get(user=self.request.user)
+        to_account = Account.objects.get(account_no=account_no)
+        to_user = to_account.user
         
-        transactions = Transaction.objects.filter(to_account=account_no,user=self.request.user)
+        transactions = Transaction.objects.filter(Q(from_account=from_account) & Q(to_account=account_no) | Q(from_account=to_account) & Q(to_account=from_account.account_no),Q(user=self.request.user) | Q(user=to_user)).order_by("-id")
         serializer = ListTransactionBetweenUserSerializer({'account_no': account_no, 'transactions': transactions}, many=False)
         return Response(serializer.data, status=status.HTTP_200_OK)
 

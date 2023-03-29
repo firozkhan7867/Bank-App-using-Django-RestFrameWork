@@ -4,7 +4,7 @@ from accounts.serializers import CustomUserSerializer
 
 
 class AccountSerializer(serializers.ModelSerializer):
-    user = CustomUserSerializer()
+    user = CustomUserSerializer(read_only=True)
     class Meta:
         model = Account
         fields = ("id","balance","account_no","user")
