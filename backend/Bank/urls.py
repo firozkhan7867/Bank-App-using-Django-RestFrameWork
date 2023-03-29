@@ -7,9 +7,11 @@ router.register("account",views.AccountViewSet,basename="account")
 router.register("pinCode",views.PinCodeViewSet)
 router.register("transaction",views.TransactionViewSet)
 router.register("History",views.HistoryViewSet)
+router.register("notification",views.NotificationViewSet)
+router.register("listTransaction",views.ListTransactionViewSet)
 
 urlpatterns = [
-    path('',include(router.urls))
+    path('',include(router.urls)),
 ]
 
 

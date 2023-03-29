@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from datetime import datetime
 # Create your models here.
 
 
@@ -33,6 +34,15 @@ class History(models.Model):
     accounts = models.ManyToManyField(Account,"transaction_accounts")
 
 
+class Notification(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.CASCADE)
+    account = models.ForeignKey(Account,on_delete=models.CASCADE)
+    amount = models.CharField(max_length=20)
+    message = models.CharField(max_length=255)
+
+    def __str__(self):
+        return self.message
+
 
 
 class Transaction(models.Model):
@@ -53,25 +63,35 @@ class Transaction(models.Model):
             to_account = Account.objects.get(account_no=self.to_account)
             self.sender_last_balance =  self.from_account.balance
             self.to_last_balance = to_account.balance
+            date = f"{datetime.now()}"[:-4]
             if self.type == "Deposit":
                 # raise ValidationError("Error.....")
+                message = f"Dear Customer, Your account no {self.from_account.account_no} got credited amount {self.amount} on {date}"
+                notification = Notification.objects.create(user=self.user,account=to_account,amount=self.amount,message=message)
                 to_account.balance += self.amount
             elif self.type == "Transfer":
+                message = f"Dear Customer, Your account no {self.from_account.account_no} got debited amount {self.amount} on {date}"
+                notification = Notification.objects.create(user=self.user,account=to_account,amount=self.amount,message=message)
+                message = f"Dear Customer, Your account no {to_account.account_no} got credited amount {self.amount} on {date}"
+                notification = Notification.objects.create(user=to_account.user,account=self.from_account,amount=self.amount,message=message)
                 self.from_account.balance -= self.amount
                 to_account.balance += self.amount
             elif self.type == "WithDraw":
+                message = f"Dear Customer, Your account no {self.from_account.account_no} got debited amount {self.amount} on {date}"
+                notification = Notification.objects.create(user=self.user,account=to_account,amount=self.amount,message=message)
                 to_account.balance -= self.amount
             
-            if History.objects.filter(user=self.user).exists():
+            if History.objects.filter(user=self.user).exists() and self.from_account.account_no != to_account.account_no:
                 hist = History.objects.get(user=self.user)
                 if to_account not in hist.accounts.all():
                     hist.accounts.add(to_account)
                     hist.save()
             else:
-                hist = History(user=self.user,account=self.from_account)
-                hist.save()
-                hist.accounts.add(to_account)
-                hist.save()
+                if self.from_account.account_no != to_account.account_no:
+                    hist = History(user=self.user,account=self.from_account)
+                    hist.save()
+                    hist.accounts.add(to_account)
+                    hist.save()
             self.from_account.save()
             to_account.save()
             self.sender_updated_balance = self.from_account.balance

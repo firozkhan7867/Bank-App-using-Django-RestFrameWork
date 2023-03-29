@@ -3,10 +3,23 @@ from rest_framework import viewsets,status
 from rest_framework.response import Response
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
-from .serializers import AccountSerializer,PinCodeSerializer,TransactionSerializer,HistorySerializer
-from .models import Account,PinCode,Transaction,History
+from .serializers import AccountSerializer,PinCodeSerializer,TransactionSerializer,HistorySerializer,NotificationSerializer,ListTransactionBetweenUserSerializer
+from .models import Account,PinCode,Transaction,History,Notification
 from .permissions import UpdateOwnAccount
+from drf_spectacular.utils import extend_schema,OpenApiParameter
+from drf_spectacular.types import OpenApiTypes
 # Create your views here.
+from rest_framework.filters import BaseFilterBackend
+import coreapi
+
+class SimpleFilterBackend(BaseFilterBackend):
+    def get_schema_fields(self, view):
+        return [coreapi.Field(
+            name='query',
+            location='query',
+            required=False,
+            type='string'
+        )]
 
 
 
@@ -75,9 +88,13 @@ class TransactionViewSet(viewsets.ModelViewSet):
                 return Response({"Error":"Insufficient Fund. Cannot WithDraw Money"},status=status.HTTP_400_BAD_REQUEST)
         elif serializer.validated_data["type"] == "Transfer":
             from_account = Account.objects.get(user=self.request.user)
+            to_account = Account.objects.get(account_no=serializer.validated_data["to_account"])
             amount = serializer.validated_data["amount"]
             if from_account.balance - amount < 0:
                 return Response({"Error":"Insufficient Fund. Transaction of Money Not Possible"},status=status.HTTP_400_BAD_REQUEST)
+            if from_account.account_no == to_account.account_no:
+                return Response({"Error":"Invalid Transation.....!!!!!"},status=status.HTTP_400_BAD_REQUEST)
+            
         serializer.validated_data.pop("pinCode")
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
@@ -101,4 +118,50 @@ class HistoryViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         account = Account.objects.get(user=self.request.user)
         serializer.save(user=self.request.user,account=account)
+
+
+class NotificationViewSet(viewsets.ModelViewSet):
+    queryset = Notification.objects.all()
+    authentication_classes = (TokenAuthentication,)
+    permission_classes = (IsAuthenticated,UpdateOwnAccount,)
+    serializer_class = NotificationSerializer
+
+    def get_queryset(self):
+        return self.queryset.filter(user=self.request.user)
+    
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+
+class ListTransactionViewSet(viewsets.ModelViewSet):
+    queryset = Transaction.objects.all()
+    authentication_classes = (TokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    serializer_class = TransactionSerializer
+    filter_backends = (SimpleFilterBackend,)
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name='account_no',
+                location=OpenApiParameter.QUERY,
+                description='Account ID',
+            )
+        ]
+    )
+    def list(self, request, *args, **kwargs):
+        """
+            account_no -- A first parameter
+        """ 
+        account_no = request.query_params.get('account_no',None)
+        if not account_no:
+            return Response({'account_no': 'This field is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        transactions = Transaction.objects.filter(to_account=account_no,user=self.request.user)
+        serializer = ListTransactionBetweenUserSerializer({'account_no': account_no, 'transactions': transactions}, many=False)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
 

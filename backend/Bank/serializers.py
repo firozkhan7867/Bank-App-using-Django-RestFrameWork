@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Account,PinCode,Transaction,History
+from .models import Account,PinCode,Transaction,History,Notification
 from accounts.serializers import CustomUserSerializer
 
 
@@ -89,3 +89,26 @@ class HistorySerializer(serializers.ModelSerializer):
     #     data['user'] = instance.user.username
     #     data['accounts'] = AccountSerializer(instance.accounts.all(), many=True).data
     #     return data
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    account = AccountOtherSerializer(read_only=True)
+    class Meta:
+        model = Notification
+        fields =  ("id","account","amount","message")
+        # extra_kwargs = {
+        #     "account":{
+        #         "read_only":True
+        #     },
+        # }
+
+class ListTransactionBetweenUserSerializer(serializers.ModelSerializer):
+    account_no = serializers.CharField()
+    transactions = TransactionSerializer(many=True,read_only=True)
+    class Meta:
+        model = Transaction
+        fields = ("account_no","transactions")
+
+
+
+
