@@ -7,20 +7,6 @@ from .serializers import AccountSerializer,PinCodeSerializer,TransactionSerializ
 from .models import Account,PinCode,Transaction,History,Notification
 from .permissions import UpdateOwnAccount
 from drf_spectacular.utils import extend_schema,OpenApiParameter
-from drf_spectacular.types import OpenApiTypes
-# Create your views here.
-from rest_framework.filters import BaseFilterBackend
-import coreapi
-
-class SimpleFilterBackend(BaseFilterBackend):
-    def get_schema_fields(self, view):
-        return [coreapi.Field(
-            name='query',
-            location='query',
-            required=False,
-            type='string'
-        )]
-
 
 
 
