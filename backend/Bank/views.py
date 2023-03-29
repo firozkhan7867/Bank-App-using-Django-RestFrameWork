@@ -8,7 +8,13 @@ from .models import Account,PinCode,Transaction,History,Notification
 from .permissions import UpdateOwnAccount
 from drf_spectacular.utils import extend_schema,OpenApiParameter
 from django.db.models import Q
+from rest_framework.pagination import PageNumberPagination
 
+
+class MyPagination(PageNumberPagination):
+    page_size = 5
+    page_size_query_param = 'page_size'
+ 
 
 
 class AccountViewSet(viewsets.ModelViewSet):
@@ -39,12 +45,20 @@ class PinCodeViewSet(viewsets.ModelViewSet):
         print(account)
         serializer.save(user=self.request.user,account=account)
 
-
+@extend_schema(
+    request=None,
+    responses=TransactionSerializer(many=True),
+    parameters=[
+        OpenApiParameter('page', int, OpenApiParameter.QUERY),
+        OpenApiParameter('page_size', int, OpenApiParameter.QUERY),
+    ]
+)
 class TransactionViewSet(viewsets.ModelViewSet):
     serializer_class = TransactionSerializer
     authentication_classes = (TokenAuthentication,)
     permission_classes = (IsAuthenticated,UpdateOwnAccount,)
     queryset = Transaction.objects.all()
+    pagination_class = MyPagination
 
     def get_queryset(self):
         return self.queryset.filter(user=self.request.user).order_by("-id")
@@ -92,41 +106,66 @@ class TransactionViewSet(viewsets.ModelViewSet):
 
 
 
-
+@extend_schema(
+    request=None,
+    responses=HistorySerializer(many=True),
+    parameters=[
+        OpenApiParameter('page', int, OpenApiParameter.QUERY),
+        OpenApiParameter('page_size', int, OpenApiParameter.QUERY),
+    ]
+)
 class HistoryViewSet(viewsets.ModelViewSet):
     queryset = History.objects.all()
     authentication_classes = (TokenAuthentication,)
     permission_classes = (IsAuthenticated,UpdateOwnAccount,)
     serializer_class = HistorySerializer
+    pagination_class = MyPagination
+    pagination_class = MyPagination
 
     def get_queryset(self):
-        return self.queryset.filter(user=self.request.user)
+        return self.queryset.filter(user=self.request.user).order_by("-id")
 
     def perform_create(self, serializer):
         account = Account.objects.get(user=self.request.user)
         serializer.save(user=self.request.user,account=account)
 
-
+@extend_schema(
+    request=None,
+    responses=NotificationSerializer(many=True),
+    parameters=[
+        OpenApiParameter('page', int, OpenApiParameter.QUERY),
+        OpenApiParameter('page_size', int, OpenApiParameter.QUERY),
+    ]
+)
 class NotificationViewSet(viewsets.ModelViewSet):
     queryset = Notification.objects.all()
     authentication_classes = (TokenAuthentication,)
     permission_classes = (IsAuthenticated,UpdateOwnAccount,)
     serializer_class = NotificationSerializer
+    pagination_class = MyPagination
 
     def get_queryset(self):
-        return self.queryset.filter(user=self.request.user)
+        return self.queryset.filter(user=self.request.user).order_by("-id")
     
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
 
-
+# @extend_schema(
+#     request=None,
+#     responses=TransactionSerializer(many=True),
+#     parameters=[
+#         OpenApiParameter('page', int, OpenApiParameter.QUERY),
+#         OpenApiParameter('page_size', int, OpenApiParameter.QUERY),
+#     ]
+# )
 class ListTransactionViewSet(viewsets.ModelViewSet):
     queryset = Transaction.objects.all()
     authentication_classes = (TokenAuthentication,)
     permission_classes = (IsAuthenticated,)
     serializer_class = TransactionSerializer
+    # pagination_class = MyPagination
 
     @extend_schema(
         parameters=[
@@ -134,6 +173,14 @@ class ListTransactionViewSet(viewsets.ModelViewSet):
                 name='account_no',
                 location=OpenApiParameter.QUERY,
                 description='Account ID',
+            ),OpenApiParameter(
+                name='page',
+                location=OpenApiParameter.QUERY,
+                description='Page no',
+            ),OpenApiParameter(
+                name='page_size',
+                location=OpenApiParameter.QUERY,
+                description='Page Size',
             )
         ]
     )
@@ -143,12 +190,28 @@ class ListTransactionViewSet(viewsets.ModelViewSet):
         """ 
         account_no = request.query_params.get('account_no',None)
         if not account_no:
-            return Response({'account_no': 'This field is required.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'Error': 'Account  field is required.'}, status=status.HTTP_400_BAD_REQUEST)
         from_account = Account.objects.get(user=self.request.user)
-        to_account = Account.objects.get(account_no=account_no)
+        try:
+            to_account = Account.objects.get(account_no=account_no)
+        except:
+            return Response({'Error': 'Account not found in server.... check ur account number'}, status=status.HTTP_400_BAD_REQUEST)
         to_user = to_account.user
         
-        transactions = Transaction.objects.filter(Q(from_account=from_account) & Q(to_account=account_no) | Q(from_account=to_account) & Q(to_account=from_account.account_no),Q(user=self.request.user) | Q(user=to_user)).order_by("-id")
+        page = request.query_params.get('page',1)
+        page_size = request.query_params.get('page_size',10)
+        try:
+            page = int(page)
+            page_size = int(page_size)
+        except ValueError:
+            page = 1
+            page_size = 10
+        
+        offset = (page - 1) * page_size
+        limit = offset + page_size
+        transactions = Transaction.objects.filter(Q(from_account=from_account) & Q(to_account=account_no) | Q(from_account=to_account) & Q(to_account=from_account.account_no),Q(user=self.request.user) | Q(user=to_user)).order_by("-id")[offset:limit]
+        
+
         serializer = ListTransactionBetweenUserSerializer({'account_no': account_no, 'transactions': transactions}, many=False)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
